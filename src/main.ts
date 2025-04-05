@@ -22,6 +22,7 @@ async function bootstrap() {
       },
       "token",
     )
+    .addTag("travo")
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -30,10 +31,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
-  app.enableCors({
-    origin: "https://koreauniv.gdgoc.kr",
-    credentials: true,
-  });
+  app.enableCors();
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

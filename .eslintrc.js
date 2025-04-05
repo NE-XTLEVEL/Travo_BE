@@ -39,6 +39,10 @@ module.exports = {
         format: ["snake_case", "camelCase", "UPPER_CASE"],
       },
       {
+        selector: "parameter", // 매개변수
+        format: ["camelCase", "snake_case"],
+      },
+      {
         selector: "memberLike", // Property 멤버
         format: ["camelCase"],
       },
