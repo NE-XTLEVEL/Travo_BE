@@ -25,8 +25,13 @@ export class AuthController {
     const { access_token, refresh_token } =
       await this.authService.login(loginDto);
 
-    console.log("access_token", access_token);
-    // res.cookie("refresh_token", refresh_token);
+    res.cookie("refresh_token", refresh_token, {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+      maxAge: 604800000,
+      domain: ".travo.kr",
+    }); //7일 유효
 
     return { access_token };
   }
@@ -40,7 +45,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout(@Res({ passthrough: true }) res: Response) {
     // refresh token 쿠키 삭제
-    res.clearCookie("refresh_token", { domain: "localhost" });
+    res.clearCookie("refresh_token", { domain: ".travo.kr" });
     return { message: "logout success" };
   }
 
@@ -59,7 +64,13 @@ export class AuthController {
       req.cookies["refresh_token"],
     );
 
-    res.cookie("refresh_token", refresh_token);
+    res.cookie("refresh_token", refresh_token, {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+      maxAge: 604800000,
+      domain: ".travo.kr",
+    }); //7일 유효
 
     return { access_token };
   }

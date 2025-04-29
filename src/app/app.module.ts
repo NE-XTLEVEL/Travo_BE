@@ -2,33 +2,60 @@ import { Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { User } from "src/user/entities/user.entity";
+import { TypeOrmModule, TypeOrmModuleOptions } from "@nestjs/typeorm";
 import { UserModule } from "src/user/user.module";
 import { AuthModule } from "src/auth/auth.module";
-import { JwtModule } from "@nestjs/jwt";
+import { User } from "src/user/entities/user.entity";
+import { Location } from "src/location/entities/location.entity";
+import { Category } from "src/location/entities/category.entity";
+import { DataSource } from "typeorm";
+import { WithLengthColumnType } from "typeorm/driver/types/ColumnTypes";
+import { HttpModule } from "@nestjs/axios";
+import { LocationModule } from "src/location/location.module";
+import { UserSubscriber } from "src/subscribers/user_subscriber";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ envFilePath: ".env", isGlobal: true }),
-    TypeOrmModule.forRoot({
-      type: "postgres",
-      host: process.env.DB_HOST,
-      extra: {
-        socketPath: process.env.DB_SOCKET_PATH,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): TypeOrmModuleOptions => ({
+        type: "postgres",
+        host: config.get<string>("DB_HOST"),
+        port: config.get<number>("DB_PORT"),
+        username: config.get<string>("DB_USERNAME"),
+        password: config.get<string>("DB_PASSWORD"),
+        database: config.get<string>("DB_NAME"),
+        entities: [User, Location, Category],
+        subscribers: [UserSubscriber],
+        synchronize: false,
+        logging: config.get<string>("NODE_ENV") !== "production",
+      }),
+      dataSourceFactory: async (options) => {
+        const dataSource = new DataSource(options);
+
+        // Push vector into length column type
+        dataSource.driver.supportedDataTypes.push(
+          "vector" as WithLengthColumnType,
+        );
+        dataSource.driver.withLengthColumnTypes.push(
+          "vector" as WithLengthColumnType,
+        );
+
+        // Initialize datasource
+        await dataSource.initialize();
+
+        return dataSource;
       },
-      port: +process.env.DB_PORT,
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      entities: [User],
-      migrations: [__dirname + "/src/migrations/*.ts"],
-      autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV !== "production",
-      logging: process.env.NODE_ENV !== "production",
     }),
     UserModule,
     AuthModule,
+    LocationModule,
+    HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 1,
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],

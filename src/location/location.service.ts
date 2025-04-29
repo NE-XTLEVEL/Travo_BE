@@ -1,0 +1,273 @@
+import { Injectable } from "@nestjs/common";
+import { LocationRepository } from "./location.repository";
+import { RecommendationDto } from "./dto/request/recommendation.dto";
+import { HttpService } from "@nestjs/axios";
+import { catchError, firstValueFrom, map } from "rxjs";
+import { AxiosError } from "axios";
+import { RecommendationResponseDto } from "./dto/response/recommendation.response.dto";
+
+/*
+SELECT name FROM locations WHERE review_score IS NOT NULL AND review_score >= 3 ORDER BY review_vector <#>
+*/
+@Injectable()
+export class LocationService {
+  constructor(
+    private readonly locationRepository: LocationRepository,
+    private readonly httpService: HttpService,
+  ) {}
+
+  async getRecommendationTest(recommendationDto: RecommendationDto) {
+    const { description } = recommendationDto;
+
+    const response = await this.httpService
+      .post(
+        process.env.AI_SERVER + "/embedding",
+        { prompt: description },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            accept: "application/json",
+          },
+        },
+      )
+      .pipe(
+        map((response) => response.data.embedding as number[]),
+        catchError((error: AxiosError) => {
+          console.error("Error fetching embedding:", error);
+          throw new Error("Failed to fetch embedding from AI server");
+        }),
+      );
+
+    const embedding_vector = await firstValueFrom(response);
+
+    return this.locationRepository.recommendPlace(embedding_vector);
+  }
+
+  async getRecommendation(
+    recommendationDto: RecommendationDto,
+  ): Promise<RecommendationResponseDto> {
+    new Promise<void>((resolve) => setTimeout(resolve, 5000));
+
+    return {
+      data: {
+        day1: [
+          {
+            kakao_id: 12156,
+            local_id: 1,
+            name: "인천공항",
+            x: 126.442056,
+            y: 37.458848,
+            address: "인천광역시 중구 공항로 272",
+            url: "https://naver.com",
+            category: "교통",
+          },
+          {
+            kakao_id: 12237,
+            local_id: 2,
+            name: "호우섬 더현대서울점이라고 하고 난몰라 난몰라 천번만번 알아줘도 몰라몰라",
+            x: 126.928439,
+            y: 37.525907,
+            address: "108 여의대로 Yeongdeungpo-gu, 영등포구 서울특별시",
+            url: "",
+            category: "식당",
+          },
+          {
+            kakao_id: 12345,
+            local_id: 3,
+            name: "남산 케이블카",
+            x: 126.983988,
+            y: 37.556615,
+            address: "우린,서울특별시 중구 회현동1가 번지 1층 산1-19",
+            url: "",
+            category: "놀거리",
+          },
+          {
+            kakao_id: 12456,
+            local_id: 4,
+            name: "신라 호텔",
+            x: 127.005262,
+            y: 37.556048,
+            address:
+              "서울신라호텔 팔선,서울특별시 중구 장충동 동호로 249 서울신라호텔 2층",
+            url: "https://booking.com",
+            category: "숙소",
+          },
+        ],
+        day2: [
+          {
+            kakao_id: 12456,
+            local_id: 5,
+            name: "신라 호텔",
+            x: 127.005262,
+            y: 37.556048,
+            address:
+              "서울신라호텔 팔선,서울특별시 중구 장충동 동호로 249 서울신라호텔 2층",
+            url: "https://booking.com",
+            category: "숙소",
+          },
+          {
+            kakao_id: 12567,
+            local_id: 6,
+            name: "소담촌 약수점",
+            x: 127.012246,
+            y: 37.55487,
+            address: "동호로10길,서울특별시 중구",
+            url: "",
+            category: "식당",
+          },
+          {
+            kakao_id: 12678,
+            local_id: 7,
+            name: "국립 중앙 박물관",
+            x: 126.978668,
+            y: 37.524143,
+            address:
+              "국립중앙박물관 어린이박물관,서울특별시 용산구 서빙고로 137",
+            url: "",
+            category: "놀거리",
+          },
+          {
+            kakao_id: 12456,
+            local_id: 8,
+            name: "신라 호텔",
+            x: 127.005262,
+            y: 37.556048,
+            address:
+              "서울신라호텔 팔선,서울특별시 중구 장충동 동호로 249 서울신라호텔 2층",
+            url: "https://booking.com",
+            category: "숙소",
+          },
+        ],
+        day3: [
+          {
+            kakao_id: 12456,
+            local_id: 14,
+            name: "신라 호텔",
+            x: 127.005262,
+            y: 37.556048,
+            address:
+              "서울신라호텔 팔선,서울특별시 중구 장충동 동호로 249 서울신라호텔 2층",
+            url: "https://booking.com",
+            category: "숙소",
+          },
+          {
+            kakao_id: 12577,
+            local_id: 9,
+            name: "카페 산",
+            x: 127.193672,
+            y: 37.468896,
+            address: "경기도 광주시 남한산성면 검복리 297-11",
+            url: "",
+            category: "카페",
+          },
+          {
+            kakao_id: 12156,
+            local_id: 10,
+            name: "인천공항",
+            x: 126.442056,
+            y: 37.458848,
+            address: "인천광역시 중구 공항로 272",
+            url: "https://naver.com",
+            category: "교통",
+          },
+        ],
+        day4: [
+          {
+            kakao_id: 34905,
+            local_id: 11,
+            name: "우성아파트",
+            x: 127.069139,
+            y: 37.500301,
+            address: "서울시 강남구 대치동 영동대로 230",
+            url: "https://naver.com",
+            category: "숙소",
+          },
+          {
+            kakao_id: 63452,
+            local_id: 12,
+            name: "광장시장",
+            x: 126.999571,
+            y: 37.570116,
+            address: "대원상회,165-6 종로4가 종로구 서울특별시",
+            url: "",
+            category: "명소",
+          },
+          {
+            kakao_id: 23455,
+            local_id: 13,
+            name: "동대문 디자인 플라자",
+            x: 127.009213,
+            y: 37.566704,
+            address: "동대문디자인플라자,서울특별시 중구 을지로 281",
+            url: "",
+            category: "명소",
+          },
+        ],
+        day5: [
+          {
+            kakao_id: 11111,
+            local_id: 14,
+            name: "올림픽 공원",
+            x: 127.121451,
+            y: 37.520882,
+            address: "올림픽공원,서울특별시 송파구 올림픽로 424",
+            url: "",
+            category: "명소",
+          },
+          {
+            kakao_id: 63452,
+            local_id: 15,
+            name: "광장시장",
+            x: 126.999571,
+            y: 37.570116,
+            address: "대원상회,165-6 종로4가 종로구 서울특별시",
+            url: "",
+            category: "명소",
+          },
+          {
+            kakao_id: 85765,
+            local_id: 16,
+            name: "어린이 대공원",
+            x: 127.081761,
+            y: 37.549567,
+            address: "버섯마을,서울특별시 광진구 능동 18",
+            url: "",
+            category: "명소",
+          },
+        ],
+        day6: [
+          {
+            kakao_id: 11111,
+            local_id: 14,
+            name: "올림픽 공원",
+            x: 127.121451,
+            y: 37.520882,
+            address: "올림픽공원,서울특별시 송파구 올림픽로 424",
+            url: "",
+            category: "명소",
+          },
+          {
+            kakao_id: 22222,
+            local_id: 15,
+            name: "예술의 전당",
+            x: 127.012818,
+            y: 37.479435,
+            address: "서울특별시 서초구 서초동 산130-5",
+            url: "",
+            category: "명소",
+          },
+          {
+            kakao_id: 85765,
+            local_id: 16,
+            name: "어린이 대공원",
+            x: 127.081761,
+            y: 37.549567,
+            address: "버섯마을,서울특별시 광진구 능동 18",
+            url: "",
+            category: "명소",
+          },
+        ],
+      },
+    };
+  }
+}
