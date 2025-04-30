@@ -23,6 +23,9 @@ import { UserSubscriber } from "src/subscribers/user_subscriber";
       useFactory: (config: ConfigService): TypeOrmModuleOptions => ({
         type: "postgres",
         host: config.get<string>("DB_HOST"),
+        extra: {
+          socketPath: config.get<string>("DB_SOCKETPATH"),
+        },
         port: config.get<number>("DB_PORT"),
         username: config.get<string>("DB_USERNAME"),
         password: config.get<string>("DB_PASSWORD"),

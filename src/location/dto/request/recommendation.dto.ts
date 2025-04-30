@@ -17,4 +17,10 @@ export class RecommendationDto {
   @IsString({ message: "date must be a string" })
   @MinLength(1, { message: "date must be at least 1 character long" })
   date: Date;
+
+  @ApiProperty({
+    description: "The number of days for the recommendation",
+    example: 3,
+  })
+  days: number;
 }
