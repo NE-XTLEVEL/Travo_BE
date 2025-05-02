@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, MinLength } from "class-validator";
+import { IsString, Max, MinLength } from "class-validator";
 
 export class RecommendationDto {
   @ApiProperty({
@@ -22,5 +22,13 @@ export class RecommendationDto {
     description: "The number of days for the recommendation",
     example: 3,
   })
+  @Max(10, { message: "days must be at most 7" })
   days: number;
+
+  @ApiProperty({
+    description: "The name of this plan",
+    example: "2박 3일 여행계획",
+  })
+  @IsString({ message: "name must be a string" })
+  plan_name: string;
 }

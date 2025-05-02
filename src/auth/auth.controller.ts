@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   NotFoundException,
   Post,
   Req,
@@ -86,4 +87,16 @@ export class AuthController {
 
     return { access_token };
   }
+
+  @Get("check")
+  @ApiOperation({
+    summary: "access token 유효성 검사",
+    description: "access token이 유효한지 검사",
+  })
+  @ApiBearerAuth("token")
+  @UseGuards(JwtAuthGuard)
+  // eslint-disable-next-line
+  async check(@Req() req: Request) {
+    return { message: "access token is valid" }; // access token이 유효한지 검사
+  } // access token이 유효한지 검사
 }

@@ -1,5 +1,12 @@
-import { BeforeInsert, Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import {
+  BeforeInsert,
+  Column,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import * as bcrypt from "bcrypt";
+import { Plan } from "src/plan/entities/plan.entity";
 
 @Entity({ name: "users" })
 export class User {
@@ -22,6 +29,9 @@ export class User {
     nullable: true,
   })
   refresh_token: string;
+
+  @OneToMany(() => Plan, (plan) => plan.user)
+  plans: Plan[];
 
   @BeforeInsert()
   private async hashPassword() {

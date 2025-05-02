@@ -5,6 +5,8 @@ import { HttpService } from "@nestjs/axios";
 import { catchError, firstValueFrom, map } from "rxjs";
 import { AxiosError } from "axios";
 import { RecommendationResponseDto } from "./dto/response/recommendation.response.dto";
+import { User } from "src/user/entities/user.entity";
+import { PlanService } from "src/plan/plan.service";
 
 /*
 SELECT name FROM locations WHERE review_score IS NOT NULL AND review_score >= 3 ORDER BY review_vector <#>
@@ -14,10 +16,14 @@ export class LocationService {
   constructor(
     private readonly locationRepository: LocationRepository,
     private readonly httpService: HttpService,
+    private readonly planService: PlanService,
   ) {}
 
-  async getRecommendationTest(recommendationDto: RecommendationDto) {
-    const { description } = recommendationDto;
+  async getRecommendation(
+    user: User,
+    recommendationDto: RecommendationDto,
+  ): Promise<RecommendationResponseDto> {
+    const { description, days, plan_name } = recommendationDto;
 
     const response = await this.httpService
       .post(
@@ -33,35 +39,7 @@ export class LocationService {
       .pipe(
         map((response) => response.data.embedding as number[]),
         catchError((error: AxiosError) => {
-          console.error("Error fetching embedding:", error);
-          throw new Error("Failed to fetch embedding from AI server");
-        }),
-      );
-
-    const embedding_vector = await firstValueFrom(response);
-
-    return this.locationRepository.recommendLandmark(embedding_vector, 6);
-  }
-
-  async getRecommendation(recommendationDto: RecommendationDto) {
-    const { description, days } = recommendationDto;
-
-    const response = await this.httpService
-      .post(
-        process.env.AI_SERVER + "/embedding",
-        { prompt: description },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            accept: "application/json",
-          },
-        },
-      )
-      .pipe(
-        map((response) => response.data.embedding as number[]),
-        catchError((error: AxiosError) => {
-          console.error("Error fetching embedding:", error);
-          throw new Error("Failed to fetch embedding from AI server");
+          throw new Error("Failed to fetch embedding from AI server " + error);
         }),
       ); // embedding vector를 가져오는 API 호출
 
@@ -101,6 +79,10 @@ export class LocationService {
           local_id++;
         }
       }
+    }
+
+    if (user) {
+      await this.planService.createPlan(user.id, result, plan_name); // 계획 저장
     }
     return result;
   }

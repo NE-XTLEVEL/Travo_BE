@@ -20,31 +20,27 @@ export class LocationRepository extends Repository<Location> {
    * @param {number} take 추천할 장소 개수
    * @returns 추천 랜드마크 리스트
    * */
-  async recommendLandmark(
-    embedding_vector: number[],
-    take: number,
-  ): Promise<Location[]> {
+  async recommendLandmark(embedding_vector: number[], take: number) {
     const embedding_string = `[${embedding_vector.join(",")}]`;
 
     return this.repository
       .createQueryBuilder("location")
       .leftJoinAndSelect("location.category", "category")
       .select([
-        "location.id",
-        "location.name",
+        "location.id AS kakao_id",
+        "location.name AS name",
         "location.address",
         "location.url",
-        "location.coordinates",
-        "location.review_score",
-        "category.id",
-        "category.name",
+        "ST_X(location.coordinates) AS x",
+        "ST_Y(location.coordinates) AS y",
+        "category.name AS category",
       ])
       .addSelect(`location.review_vector <-> :embedding`, "distance")
       .setParameter("embedding", embedding_string)
       .where("category.id = :category_id", { category_id: 6 })
       .orderBy("distance", "ASC")
       .take(take)
-      .getMany();
+      .getRawMany();
   }
 
   /**
@@ -53,10 +49,9 @@ export class LocationRepository extends Repository<Location> {
    * @param {Location} landmark 사용자가 선택한 랜드마크
    * @returns 추천 장소 리스트
    * */
-  async recommendOtherCategory(embedding_vector: number[], landmark: Location) {
+  async recommendOtherCategory(embedding_vector: number[], landmark) {
     const embedding_string = `[${embedding_vector.join(",")}]`;
 
-    console.log("landmark", landmark);
     const filtering_query = this.dataSource
       .createQueryBuilder()
       .subQuery()
@@ -76,6 +71,7 @@ export class LocationRepository extends Repository<Location> {
       .andWhere("ST_Y(location.coordinates) BETWEEN :y_min AND :y_max")
       .andWhere("location.id != :landmark_id")
       .andWhere("(location.review_score IS NULL OR location.review_score >= 3)")
+      .andWhere("location.review_vector IS NOT NULL")
       .leftJoin(Category, "category", "location.category_id = category.id")
       .getQuery();
 
@@ -116,16 +112,14 @@ export class LocationRepository extends Repository<Location> {
         "sq.url",
         "ST_X(sq.coordinates) AS x",
         "ST_Y(sq.coordinates) AS y",
-        "sq.review_score",
-        "sq.category_id",
-        "sq.category_name",
+        "sq.category_name AS category",
       ])
       .from(`(${sub_query})`, "sq")
-      .setParameter("x_min", landmark.coordinates.coordinates[0] - 0.015)
-      .setParameter("x_max", landmark.coordinates.coordinates[0] + 0.015)
-      .setParameter("y_min", landmark.coordinates.coordinates[1] - 0.02)
-      .setParameter("y_max", landmark.coordinates.coordinates[1] + 0.02)
-      .setParameter("landmark_id", landmark.id)
+      .setParameter("x_min", landmark.x - 0.015)
+      .setParameter("x_max", landmark.x + 0.015)
+      .setParameter("y_min", landmark.y - 0.02)
+      .setParameter("y_max", landmark.y + 0.02)
+      .setParameter("landmark_id", landmark.kakao_id)
       .setParameter("embedding", embedding_string)
       .where("(sq.rn <= :restaurant_limit AND sq.category_id = 1)", {
         restaurant_limit: 2,

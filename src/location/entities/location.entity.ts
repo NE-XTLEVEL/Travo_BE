@@ -4,14 +4,16 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   Point,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
 } from "typeorm";
 import { Category } from "./category.entity";
+import { Event } from "src/plan/entities/event.entity";
 
 @Entity({ name: "locations" })
 export class Location {
-  @PrimaryColumn({ name: "id", type: "int" })
+  @PrimaryGeneratedColumn({ name: "id", type: "int" })
   id: number;
 
   @Column({ name: "name", type: "varchar", length: 255, nullable: false })
@@ -22,6 +24,9 @@ export class Location {
 
   @Column({ name: "url", type: "varchar", length: 255, nullable: true })
   url: string;
+
+  // @Column({ name: "is_hotspot", type: "boolean", default: false })
+  // is_hotspot: boolean;
 
   @Column({ type: "geometry", spatialFeatureType: "Point", srid: 4326 })
   @Index("location_coordinates_idx", { spatial: true })
@@ -38,4 +43,9 @@ export class Location {
   })
   @JoinColumn({ name: "category_id" })
   category: Category;
+
+  @OneToMany(() => Event, (event) => event.location, {
+    nullable: false,
+  })
+  events: Event[];
 }

@@ -13,6 +13,9 @@ import { WithLengthColumnType } from "typeorm/driver/types/ColumnTypes";
 import { HttpModule } from "@nestjs/axios";
 import { LocationModule } from "src/location/location.module";
 import { UserSubscriber } from "src/subscribers/user_subscriber";
+import { Plan } from "src/plan/entities/plan.entity";
+import { PlanModule } from "src/plan/plan.module";
+import { Event } from "src/plan/entities/event.entity";
 
 @Module({
   imports: [
@@ -30,7 +33,7 @@ import { UserSubscriber } from "src/subscribers/user_subscriber";
         username: config.get<string>("DB_USERNAME"),
         password: config.get<string>("DB_PASSWORD"),
         database: config.get<string>("DB_NAME"),
-        entities: [User, Location, Category],
+        entities: [User, Location, Category, Plan, Event],
         subscribers: [UserSubscriber],
         synchronize: false,
         logging: config.get<string>("NODE_ENV") !== "production",
@@ -55,6 +58,7 @@ import { UserSubscriber } from "src/subscribers/user_subscriber";
     UserModule,
     AuthModule,
     LocationModule,
+    PlanModule,
     HttpModule.register({
       timeout: 5000,
       maxRedirects: 1,

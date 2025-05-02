@@ -2,6 +2,7 @@ import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { ValidateNested } from "class-validator";
 import { LocationResponseDto } from "./location.response.dto";
+import { Event } from "src/plan/entities/event.entity";
 
 @ApiExtraModels(LocationResponseDto)
 export class RecommendationResponseDto {
@@ -41,4 +42,28 @@ export class RecommendationResponseDto {
   @ValidateNested({ each: true })
   @Type(() => LocationResponseDto)
   data: Record<string, LocationResponseDto[]>;
+
+  static of(events: Event[]): RecommendationResponseDto {
+    const recommendationResponseDto = new RecommendationResponseDto();
+    recommendationResponseDto.data = {};
+
+    for (const event of events) {
+      const dayKey = `day${event.day}`;
+      if (!recommendationResponseDto.data[dayKey]) {
+        recommendationResponseDto.data[dayKey] = [];
+      }
+      recommendationResponseDto.data[dayKey].push({
+        kakao_id: event.location.id,
+        local_id: event.local_id,
+        name: event.location.name,
+        x: event.location.coordinates.coordinates[0],
+        y: event.location.coordinates.coordinates[1],
+        address: event.location.address,
+        url: event.location.url,
+        category: event.location.category.name,
+      });
+    }
+
+    return recommendationResponseDto;
+  }
 }
