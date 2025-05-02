@@ -18,7 +18,7 @@ export class LocationRepository extends Repository<Location> {
    * embedding_vector에 맞는 장소 추천
    * @param {number[]} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
    * @param {number} take 추천할 장소 개수
-   * @returns 추천 장소 리스트
+   * @returns 추천 랜드마크 리스트
    * */
   async recommendLandmark(
     embedding_vector: number[],
@@ -47,10 +47,17 @@ export class LocationRepository extends Repository<Location> {
       .getMany();
   }
 
-  async recommendOtherCategory(embedding_vector: number[]) {
+  /**
+   * embedding_vector에 맞는 장소 추천
+   * @param {number[]} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
+   * @param {Location} landmark 사용자가 선택한 랜드마크
+   * @returns 추천 장소 리스트
+   * */
+  async recommendOtherCategory(embedding_vector: number[], landmark: Location) {
     const embedding_string = `[${embedding_vector.join(",")}]`;
 
-    const sub_query = this.dataSource
+    console.log("landmark", landmark);
+    const filtering_query = this.dataSource
       .createQueryBuilder()
       .subQuery()
       .select([
@@ -60,40 +67,79 @@ export class LocationRepository extends Repository<Location> {
         "location.url AS url",
         "location.coordinates AS coordinates",
         "location.review_score AS review_score",
+        "location.review_vector AS review_vector",
         "category.id AS category_id",
         "category.name AS category_name",
+      ])
+      .from("locations", "location")
+      .where("ST_X(location.coordinates) BETWEEN :x_min AND :x_max")
+      .andWhere("ST_Y(location.coordinates) BETWEEN :y_min AND :y_max")
+      .andWhere("location.id != :landmark_id")
+      .andWhere("(location.review_score IS NULL OR location.review_score >= 3)")
+      .leftJoin(Category, "category", "location.category_id = category.id")
+      .getQuery();
+
+    const sub_query = this.dataSource
+      .createQueryBuilder()
+      .subQuery()
+      .select([
+        "fq.id AS id",
+        "fq.name AS name",
+        "fq.address AS address",
+        "fq.url AS url",
+        "fq.coordinates AS coordinates",
+        "fq.review_score AS review_score",
+        "fq.category_id AS category_id",
+        "fq.category_name AS category_name",
       ])
       .addSelect(
         `ROW_NUMBER() OVER (
           PARTITION BY 
             CASE
-              WHEN category.id = 1 THEN '음식점'
-              WHEN category.id = 2 THEN '카페'
-              WHEN category.id = 3 THEN '숙박'
+              WHEN fq.category_id = 1 THEN '음식점'
+              WHEN fq.category_id = 2 THEN '카페'
+              WHEN fq.category_id = 3 THEN '숙박'
               ELSE '관광명소'
             END
-          ORDER BY location.review_vector <-> :embedding
+          ORDER BY fq.review_vector <-> :embedding
         ) AS rn`,
       )
-      .from("locations", "location")
-      .leftJoin(Category, "category", "location.category_id = category.id")
+      .from(`(${filtering_query})`, "fq")
       .getQuery();
 
     return this.dataSource
       .createQueryBuilder()
       .select([
-        "sq.id",
+        "sq.id AS kakao_id",
         "sq.name",
         "sq.address",
         "sq.url",
-        "sq.coordinates",
+        "ST_X(sq.coordinates) AS x",
+        "ST_Y(sq.coordinates) AS y",
         "sq.review_score",
         "sq.category_id",
         "sq.category_name",
       ])
       .from(`(${sub_query})`, "sq")
+      .setParameter("x_min", landmark.coordinates.coordinates[0] - 0.015)
+      .setParameter("x_max", landmark.coordinates.coordinates[0] + 0.015)
+      .setParameter("y_min", landmark.coordinates.coordinates[1] - 0.02)
+      .setParameter("y_max", landmark.coordinates.coordinates[1] + 0.02)
+      .setParameter("landmark_id", landmark.id)
       .setParameter("embedding", embedding_string)
-      .where("sq.rn <= :limit", { limit: 3 })
+      .where("(sq.rn <= :restaurant_limit AND sq.category_id = 1)", {
+        restaurant_limit: 2,
+      })
+      .orWhere("(sq.rn <= :cafe_limit AND sq.category_id = 2)", {
+        cafe_limit: 1,
+      })
+      .orWhere("(sq.rn <= :accommodation_limit AND sq.category_id = 3)", {
+        accommodation_limit: 1,
+      })
+      .orWhere("(sq.rn <= :other_limit AND sq.category_id > 3)", {
+        other_limit: 1,
+      })
+      .orderBy("category_id", "ASC")
       .getRawMany();
   }
 }

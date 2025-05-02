@@ -18,6 +18,13 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  /**
+   * 회원가입
+   * @param {SignUpDto} signUpDto 회원가입 정보
+   * @returns {Promise<{ message: string }>} 회원가입 성공 시 메시지
+   * @throws {ConflictException} 이미 존재하는 이메일인 경우
+   * @throws {ConflictException} 회원가입 실패한 경우
+   * */
   async signup(signUpDto: SignUpDto) {
     const { email } = signUpDto;
 
@@ -29,9 +36,19 @@ export class AuthService {
 
     const newUser = await this.userRepository.save(signUpDto);
 
-    return newUser;
+    if (!newUser) {
+      throw new ConflictException("회원가입에 실패했습니다.");
+    }
+
+    return { message: "회원가입이 완료되었습니다." };
   }
 
+  /**
+   * 로그인
+   * @param {LoginDto} loginDto 로그인 정보
+   * @returns {Promise<{ access_token: string; refresh_token: string }>} 로그인 성공 시 access token과 refresh token
+   * @throws {ConflictException} 이메일 또는 비밀번호가 잘못된 경우
+   * */
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
@@ -47,6 +64,12 @@ export class AuthService {
     return { access_token, refresh_token };
   }
 
+  /**
+   * refresh token으로 access token 재발급
+   * @param {string} refresh_token refresh token
+   * @returns {Promise<{ access_token: string; refresh_token: string }>} 로그인 성공 시 access token과 refresh token
+   * @throws {UnauthorizedException} refresh token이 유효하지 않은 경우
+   * */
   async refresh(refresh_token: string) {
     let payload;
     try {
@@ -67,6 +90,11 @@ export class AuthService {
     return { access_token, refresh_token: new_refresh_token };
   }
 
+  /**
+   * refresh token 생성 및 DB에 저장
+   * @param {number} id 사용자 id
+   * @returns {Promise<string>} 새로 생성된 refresh token
+   * */
   private async updateRefreshToken(id: number): Promise<string> {
     // payload에 user id와 type을 담아 refresh token 생성
     const payload = { id, type: "refresh" };
@@ -81,6 +109,11 @@ export class AuthService {
     return refresh_token;
   }
 
+  /**
+   * access token 생성
+   * @param {number} id 사용자 id
+   * @returns {Promise<string>} access token
+   * */
   private async generateAccessToken(id: number): Promise<string> {
     const payload = { id, type: "access" };
 

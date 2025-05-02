@@ -44,7 +44,7 @@ export class LocationService {
   }
 
   async getRecommendation(recommendationDto: RecommendationDto) {
-    const { description, date, days } = recommendationDto;
+    const { description, days } = recommendationDto;
 
     const response = await this.httpService
       .post(
@@ -63,18 +63,45 @@ export class LocationService {
           console.error("Error fetching embedding:", error);
           throw new Error("Failed to fetch embedding from AI server");
         }),
-      );
+      ); // embedding vector를 가져오는 API 호출
 
     const embedding_vector = await firstValueFrom(response);
 
-    // const landmarks = await this.locationRepository.recommendLandmark(
-    //   embedding_vector,
-    //   days,
-    // );
+    const landmarks = await this.locationRepository.recommendLandmark(
+      embedding_vector,
+      days * 2 + 1,
+    ); // 랜드마크를 2*days + 1개 추천
 
-    const result =
-      await this.locationRepository.recommendOtherCategory(embedding_vector);
+    const sequence = [0, 2, -1, 4, 1, 3]; // 랜드마크 순서
+    const result = { data: {} };
+    let local_id = 1;
+    for (let i = 0; i < days; i++) {
+      const response = await this.locationRepository.recommendOtherCategory(
+        embedding_vector,
+        landmarks[i],
+      );
 
+      result.data[`day${i + 1}`] = [];
+
+      for (let j = 0; j < sequence.length; j++) {
+        if (i == days - 1 && j == 5) {
+          break;
+        }
+        if (sequence[j] === -1) {
+          result.data[`day${i + 1}`].push({
+            ...landmarks[i],
+            local_id,
+          });
+          local_id++;
+        } else {
+          result.data[`day${i + 1}`].push({
+            ...response[sequence[j]],
+            local_id,
+          });
+          local_id++;
+        }
+      }
+    }
     return result;
   }
 }

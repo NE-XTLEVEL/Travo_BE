@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req, Res, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  NotFoundException,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { SignUpDto } from "./dto/request/signup.dto";
 import { ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
@@ -31,7 +39,7 @@ export class AuthController {
       secure: true,
       maxAge: 604800000,
       domain: ".travo.kr",
-    }); //7일 유효
+    }); // refresh token cookie에 저장, 7일 유효
 
     return { access_token };
   }
@@ -45,7 +53,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout(@Res({ passthrough: true }) res: Response) {
     // refresh token 쿠키 삭제
-    res.clearCookie("refresh_token", { domain: ".travo.kr" });
+    res.clearCookie("refresh_token", { domain: ".travo.kr" }); // refresh token cookie 삭제
     return { message: "logout success" };
   }
 
@@ -60,9 +68,13 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    if (!req.cookies["refresh_token"]) {
+      throw new NotFoundException("refresh token이 없습니다.");
+    } // refresh token이 없으면 에러
+
     const { access_token, refresh_token } = await this.authService.refresh(
       req.cookies["refresh_token"],
-    );
+    ); // refresh token으로 access token 재발급
 
     res.cookie("refresh_token", refresh_token, {
       httpOnly: true,
@@ -70,7 +82,7 @@ export class AuthController {
       secure: true,
       maxAge: 604800000,
       domain: ".travo.kr",
-    }); //7일 유효
+    }); // refresh token cookie에 저장, 7일 유효
 
     return { access_token };
   }

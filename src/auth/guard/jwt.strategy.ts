@@ -19,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
 
     if (!user) {
       done(new UnauthorizedException({ message: "회원 존재하지 않음." }), null);
-    }
+    } // user가 존재하지 않는 경우 Exception 발생
 
     return done(null, user);
   }
