@@ -16,6 +16,7 @@ import { UserSubscriber } from "src/subscribers/user_subscriber";
 import { Plan } from "src/plan/entities/plan.entity";
 import { PlanModule } from "src/plan/plan.module";
 import { Event } from "src/plan/entities/event.entity";
+import { LocationHour } from "src/location/entities/location_hour.entity";
 
 @Module({
   imports: [
@@ -33,7 +34,7 @@ import { Event } from "src/plan/entities/event.entity";
         username: config.get<string>("DB_USERNAME"),
         password: config.get<string>("DB_PASSWORD"),
         database: config.get<string>("DB_NAME"),
-        entities: [User, Location, Category, Plan, Event],
+        entities: [User, Location, Category, Plan, Event, LocationHour],
         subscribers: [UserSubscriber],
         synchronize: false,
         logging: config.get<string>("NODE_ENV") !== "production",

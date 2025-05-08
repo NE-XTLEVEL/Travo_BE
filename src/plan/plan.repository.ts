@@ -13,12 +13,17 @@ export class PlanRepository extends Repository<Plan> {
     super(repository.target, repository.manager);
   }
 
-  async getPlans(user_id: number): Promise<Plan[]> {
-    return await this.repository
+  async getPlans(user_id: number, cursor: number): Promise<Plan[]> {
+    const query_builder = this.repository
       .createQueryBuilder("plan")
       .leftJoin("plan.user", "user")
-      .where("user.id = :user_id", { user_id })
-      .getMany();
+      .where("user.id = :user_id", { user_id });
+
+    if (cursor) {
+      query_builder.andWhere("plan.id < :cursor", { cursor });
+    }
+
+    return query_builder.orderBy("plan.id", "DESC").take(25).getMany();
   }
 
   /**

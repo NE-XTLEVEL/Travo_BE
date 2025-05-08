@@ -59,9 +59,8 @@ export class PlanService {
     }
   }
 
-  async getPlans(user_id: number): Promise<Plan[]> {
-    const result = await this.planRepository.getPlans(user_id);
-    console.log(result);
+  async getPlans(user_id: number, cursor: number): Promise<Plan[]> {
+    const result = await this.planRepository.getPlans(user_id, cursor);
 
     if (!result) {
       throw new NotFoundException("Plan not found");

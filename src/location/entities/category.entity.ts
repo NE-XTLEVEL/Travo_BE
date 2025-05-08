@@ -15,7 +15,7 @@ export class Category {
   @PrimaryGeneratedColumn({ name: "id", type: "int" })
   id: number;
 
-  @Column({ name: "name", type: "varchar", length: 31, nullable: false })
+  @Column({ name: "name", type: "varchar", length: 50, nullable: false })
   name: string;
 
   @OneToMany(() => Location, (location) => location.category)

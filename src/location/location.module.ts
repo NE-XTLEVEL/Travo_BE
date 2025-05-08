@@ -7,10 +7,11 @@ import { Location } from "./entities/location.entity";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Category } from "./entities/category.entity";
 import { PlanModule } from "src/plan/plan.module";
+import { LocationHour } from "./entities/location_hour.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Location, Category]),
+    TypeOrmModule.forFeature([Location, Category, LocationHour]),
     HttpModule,
     PlanModule,
   ],
