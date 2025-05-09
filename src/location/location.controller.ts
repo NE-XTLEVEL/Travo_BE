@@ -4,6 +4,8 @@ import { RecommendationDto } from "./dto/request/recommendation.dto";
 import { ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { RecommendationResponseDto } from "./dto/response/recommendation.response.dto";
 import { OptionalGuard } from "src/auth/guard/optional.guard";
+import { RecommendationOneDto } from "./dto/request/recommendation.one.dto";
+import { LocationResponseDto } from "./dto/response/location.response.dto";
 
 @Controller("location")
 @ApiBearerAuth("token")
@@ -213,5 +215,18 @@ export class LocationController {
     const user = req.user;
 
     return this.locationService.getRecommendation(user, recommendationDto);
+  }
+
+  @Post("recommendation/one")
+  @ApiOperation({ summary: "장소 하나에 대한 위치 추천" })
+  @ApiResponse({
+    status: 201,
+    description: "장소 하나에 대한 위치 추천 성공",
+    type: LocationResponseDto,
+  })
+  async getRecommendationOne(
+    @Body() recommendationOneDto: RecommendationOneDto,
+  ): Promise<LocationResponseDto[]> {
+    return this.locationService.getRecommendationOne(recommendationOneDto);
   }
 }

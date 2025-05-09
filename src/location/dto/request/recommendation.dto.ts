@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, Max, MinLength } from "class-validator";
+import { Type } from "class-transformer";
+import { IsDate, IsString, Max, MinLength } from "class-validator";
 
 export class RecommendationDto {
   @ApiProperty({
@@ -14,8 +15,8 @@ export class RecommendationDto {
     description: "The date of the recommendation",
     example: "2023-10-01",
   })
-  @IsString({ message: "date must be a string" })
-  @MinLength(1, { message: "date must be at least 1 character long" })
+  @Type(() => Date)
+  @IsDate({ message: "date must be a valid date" })
   date: Date;
 
   @ApiProperty({

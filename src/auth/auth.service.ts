@@ -9,6 +9,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { LoginDto } from "./dto/request/login.dto";
 import * as bcrypt from "bcrypt";
+import { MessageResponseDto } from "./dto/response/message.response.dto";
 
 @Injectable()
 export class AuthService {
@@ -25,7 +26,7 @@ export class AuthService {
    * @throws {ConflictException} 이미 존재하는 이메일인 경우
    * @throws {ConflictException} 회원가입 실패한 경우
    * */
-  async signup(signUpDto: SignUpDto) {
+  async signup(signUpDto: SignUpDto): Promise<MessageResponseDto> {
     const { email } = signUpDto;
 
     const existingUser = await this.userRepository.findByEmail(email);

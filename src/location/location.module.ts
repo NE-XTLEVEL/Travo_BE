@@ -11,7 +11,7 @@ import { LocationHour } from "./entities/location_hour.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Location, Category, LocationHour]),
+    TypeOrmModule.forFeature([LocationHour, Location, Category]),
     HttpModule,
     PlanModule,
   ],

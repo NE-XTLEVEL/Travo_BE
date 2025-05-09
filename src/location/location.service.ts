@@ -7,6 +7,8 @@ import { AxiosError } from "axios";
 import { RecommendationResponseDto } from "./dto/response/recommendation.response.dto";
 import { User } from "src/user/entities/user.entity";
 import { PlanService } from "src/plan/plan.service";
+import { RecommendationOneDto } from "./dto/request/recommendation.one.dto";
+import { LocationResponseDto } from "./dto/response/location.response.dto";
 
 /*
 SELECT name FROM locations WHERE review_score IS NOT NULL AND review_score >= 3 ORDER BY review_vector <#>
@@ -23,15 +25,99 @@ export class LocationService {
     user: User,
     recommendationDto: RecommendationDto,
   ): Promise<RecommendationResponseDto> {
-    const { description, days, plan_name } = recommendationDto;
+    const { description, date, days, plan_name } = recommendationDto;
 
+    const embedding_vector: string = await this.getEmbeddingVector(description); // description을 embedding vector로 변환
+
+    const landmarks = await this.locationRepository.recommendLandmark(
+      embedding_vector,
+      days,
+    ); // 랜드마크를 days개 추천
+    console.log(landmarks);
+    const day = date.getDay();
+    const result = { data: {} };
+    let local_id = 1;
+    for (let i = 0; i < days; i++) {
+      const response = await this.locationRepository.recommendOtherCategory(
+        embedding_vector,
+        landmarks[i],
+        (day + i) % 7,
+      );
+
+      result.data[`day${i + 1}`] = [];
+
+      for (let j = 0; j < 6; j++) {
+        if (i == days - 1 && j == 5) {
+          break;
+        }
+        if (j === 3) {
+          result.data[`day${i + 1}`].push({
+            ...landmarks[i],
+            local_id,
+          });
+        } else if (j < 3) {
+          result.data[`day${i + 1}`].push({
+            ...response[j],
+            local_id,
+          });
+        } else {
+          result.data[`day${i + 1}`].push({
+            ...response[j - 1],
+            local_id,
+          });
+        }
+        local_id++;
+      }
+    }
+
+    if (user) {
+      await this.planService.createPlan(user.id, result, plan_name); // 계획 저장
+    }
+    return result;
+  }
+
+  async getRecommendationOne(
+    recommendationOneDto: RecommendationOneDto,
+  ): Promise<LocationResponseDto[]> {
+    const {
+      description,
+      day,
+      category,
+      is_lunch,
+      x,
+      y,
+      high_review,
+      local_id,
+    } = recommendationOneDto;
+
+    const embedding_vector = await this.getEmbeddingVector(description); // description을 embedding vector로 변환
+
+    const locations = await this.locationRepository.recommendOne(
+      embedding_vector,
+      category,
+      day,
+      is_lunch,
+      x,
+      y,
+      high_review,
+    ); // 장소 추천
+
+    return locations.map((location) =>
+      LocationResponseDto.of({
+        ...location,
+        local_id,
+      }),
+    );
+  }
+
+  private async getEmbeddingVector(description: string): Promise<string> {
     const response = await this.httpService
       .post(
         process.env.AI_SERVER + "/embedding",
         { prompt: description },
         {
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json" /* eslint-disable-line */,
             accept: "application/json",
           },
         },
@@ -41,49 +127,11 @@ export class LocationService {
         catchError((error: AxiosError) => {
           throw new Error("Failed to fetch embedding from AI server " + error);
         }),
-      ); // embedding vector를 가져오는 API 호출
+      );
 
     const embedding_vector = await firstValueFrom(response);
 
-    const landmarks = await this.locationRepository.recommendLandmark(
-      embedding_vector,
-      days * 2 + 1,
-    ); // 랜드마크를 2*days + 1개 추천
-
-    const sequence = [0, 2, -1, 4, 1, 3]; // 랜드마크 순서
-    const result = { data: {} };
-    let local_id = 1;
-    for (let i = 0; i < days; i++) {
-      const response = await this.locationRepository.recommendOtherCategory(
-        embedding_vector,
-        landmarks[i],
-      );
-
-      result.data[`day${i + 1}`] = [];
-
-      for (let j = 0; j < sequence.length; j++) {
-        if (i == days - 1 && j == 5) {
-          break;
-        }
-        if (sequence[j] === -1) {
-          result.data[`day${i + 1}`].push({
-            ...landmarks[i],
-            local_id,
-          });
-          local_id++;
-        } else {
-          result.data[`day${i + 1}`].push({
-            ...response[sequence[j]],
-            local_id,
-          });
-          local_id++;
-        }
-      }
-    }
-
-    if (user) {
-      await this.planService.createPlan(user.id, result, plan_name); // 계획 저장
-    }
-    return result;
+    const embedding_string = `[${embedding_vector.join(",")}]`;
+    return embedding_string;
   }
 }

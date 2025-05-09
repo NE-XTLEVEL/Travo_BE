@@ -10,10 +10,12 @@ import {
 } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { SignUpDto } from "./dto/request/signup.dto";
-import { ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "./guard/jwt.guard";
 import { Request, Response } from "express";
 import { LoginDto } from "./dto/request/login.dto";
+import { MessageResponseDto } from "./dto/response/message.response.dto";
+import { AccessResponseDto } from "./dto/response/access.response.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -21,16 +23,26 @@ export class AuthController {
 
   @Post("signup")
   @ApiOperation({ summary: "회원가입" })
-  signup(@Body() signUpDto: SignUpDto) {
+  @ApiResponse({
+    status: 201,
+    description: "회원가입 성공",
+    type: MessageResponseDto,
+  })
+  async signup(@Body() signUpDto: SignUpDto): Promise<MessageResponseDto> {
     return this.authService.signup(signUpDto);
   }
 
   @Post("login")
   @ApiOperation({ summary: "로그인" })
+  @ApiResponse({
+    status: 201,
+    description: "로그인 성공",
+    type: AccessResponseDto,
+  })
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<AccessResponseDto> {
     const { access_token, refresh_token } =
       await this.authService.login(loginDto);
 
@@ -52,7 +64,14 @@ export class AuthController {
   })
   @ApiBearerAuth("token")
   @UseGuards(JwtAuthGuard)
-  async logout(@Res({ passthrough: true }) res: Response) {
+  @ApiResponse({
+    status: 201,
+    description: "로그아웃 성공",
+    type: MessageResponseDto,
+  })
+  async logout(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<MessageResponseDto> {
     // refresh token 쿠키 삭제
     res.clearCookie("refresh_token", { domain: ".travo.kr" }); // refresh token cookie 삭제
     return { message: "logout success" };
@@ -65,10 +84,15 @@ export class AuthController {
   })
   @ApiBearerAuth("token")
   @UseGuards(JwtAuthGuard)
+  @ApiResponse({
+    status: 201,
+    description: "access token 재발급 성공",
+    type: AccessResponseDto,
+  })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<AccessResponseDto> {
     if (!req.cookies["refresh_token"]) {
       throw new NotFoundException("refresh token이 없습니다.");
     } // refresh token이 없으면 에러
@@ -95,8 +119,13 @@ export class AuthController {
   })
   @ApiBearerAuth("token")
   @UseGuards(JwtAuthGuard)
+  @ApiResponse({
+    status: 200,
+    description: "access token 유효성 검사 성공",
+    type: MessageResponseDto,
+  })
   // eslint-disable-next-line
-  async check(@Req() req: Request) {
+  async check(@Req() req: Request): Promise<MessageResponseDto> {
     return { message: "access token is valid" }; // access token이 유효한지 검사
   } // access token이 유효한지 검사
 }

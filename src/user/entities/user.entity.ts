@@ -18,13 +18,13 @@ export class User {
   })
   email: string;
 
-  @Column({ name: "password", type: "varchar", length: 100, nullable: false })
+  @Column({ name: "password", type: "varchar", length: 255, nullable: false })
   password: string;
 
   @Column({
     name: "refresh_token",
     type: "varchar",
-    length: 100,
+    length: 255,
     nullable: true,
   })
   refresh_token: string;

@@ -49,4 +49,17 @@ export class LocationResponseDto {
     example: "식당",
   })
   category: string;
+
+  static of(location: any): LocationResponseDto {
+    const locationResponseDto = new LocationResponseDto();
+    locationResponseDto.kakao_id = location.kakao_id;
+    locationResponseDto.local_id = location.local_id;
+    locationResponseDto.name = location.name;
+    locationResponseDto.x = location.x;
+    locationResponseDto.y = location.y;
+    locationResponseDto.address = location.address;
+    locationResponseDto.url = location.url;
+    locationResponseDto.category = location.category;
+    return locationResponseDto;
+  }
 }

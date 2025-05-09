@@ -1,8 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource, Repository } from "typeorm";
-import { Location } from "./entities/location.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Category } from "./entities/category.entity";
+import { categoryToNumberMap } from "src/common/category/category";
+import { Location } from "./entities/location.entity";
+import { LocationHour } from "./entities/location_hour.entity";
 
 @Injectable()
 export class LocationRepository extends Repository<Location> {
@@ -16,28 +18,26 @@ export class LocationRepository extends Repository<Location> {
 
   /**
    * embedding_vector에 맞는 장소 추천
-   * @param {number[]} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
+   * @param {string} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
    * @param {number} take 추천할 장소 개수
    * @returns 추천 랜드마크 리스트
    * */
-  async recommendLandmark(embedding_vector: number[], take: number) {
-    const embedding_string = `[${embedding_vector.join(",")}]`;
-
+  async recommendLandmark(embedding_vector: string, take: number) {
     return this.repository
       .createQueryBuilder("location")
       .leftJoinAndSelect("location.category", "category")
       .select([
         "location.id AS kakao_id",
         "location.name AS name",
-        "location.address",
-        "location.url",
+        "location.address AS address",
+        "location.url AS url",
         "ST_X(location.coordinates) AS x",
         "ST_Y(location.coordinates) AS y",
         "category.name AS category",
       ])
       .addSelect(`location.review_vector <-> :embedding`, "distance")
-      .setParameter("embedding", embedding_string)
-      .where("category.id = :category_id", { category_id: 6 })
+      .setParameter("embedding", embedding_vector)
+      .where("location.is_hotspot = true")
       .orderBy("distance", "ASC")
       .take(take)
       .getRawMany();
@@ -45,13 +45,16 @@ export class LocationRepository extends Repository<Location> {
 
   /**
    * embedding_vector에 맞는 장소 추천
-   * @param {number[]} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
+   * @param {string} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
    * @param {Location} landmark 사용자가 선택한 랜드마크
+   * @param {number} day 사용자가 선택한 랜드마크의 추천 요일
    * @returns 추천 장소 리스트
    * */
-  async recommendOtherCategory(embedding_vector: number[], landmark) {
-    const embedding_string = `[${embedding_vector.join(",")}]`;
-
+  async recommendOtherCategory(
+    embedding_vector: string,
+    landmark,
+    day: number,
+  ) {
     const filtering_query = this.dataSource
       .createQueryBuilder()
       .subQuery()
@@ -65,14 +68,19 @@ export class LocationRepository extends Repository<Location> {
         "location.review_vector AS review_vector",
         "category.id AS category_id",
         "category.name AS category_name",
+        "hours.open_time < TIME '12:30:00' AND hours.close_time > TIME '13:00:00' AND day = :day AS lunch",
+        "hours.open_time < TIME '18:30:00' AND hours.close_time > TIME '19:00:00' AND day = :day AS dinner",
       ])
       .from("locations", "location")
       .where("ST_X(location.coordinates) BETWEEN :x_min AND :x_max")
       .andWhere("ST_Y(location.coordinates) BETWEEN :y_min AND :y_max")
       .andWhere("location.id != :landmark_id")
-      .andWhere("(location.review_score IS NULL OR location.review_score >= 3)")
+      .andWhere(
+        "(location.review_score IS NULL OR location.review_score >= 3.5)",
+      )
       .andWhere("location.review_vector IS NOT NULL")
       .leftJoin(Category, "category", "location.category_id = category.id")
+      .leftJoin(LocationHour, "hours", "location.id = hours.location_id")
       .getQuery();
 
     const sub_query = this.dataSource
@@ -87,15 +95,25 @@ export class LocationRepository extends Repository<Location> {
         "fq.review_score AS review_score",
         "fq.category_id AS category_id",
         "fq.category_name AS category_name",
+        `CASE
+          WHEN (fq.category_id = 1 AND fq.lunch) THEN 0
+          WHEN (fq.category_id = 1 AND fq.dinner) THEN 3
+          WHEN fq.category_id = 2 THEN 1
+          WHEN fq.category_id = 3 THEN 4
+          WHEN fq.category_id > 3 THEN 2
+          ELSE 5
+        END AS order_category`,
       ])
       .addSelect(
         `ROW_NUMBER() OVER (
           PARTITION BY 
             CASE
-              WHEN fq.category_id = 1 THEN '음식점'
+              WHEN (fq.category_id = 1 AND fq.lunch) THEN '점심'
+              WHEN (fq.category_id = 1 AND fq.dinner) THEN '저녁'
               WHEN fq.category_id = 2 THEN '카페'
               WHEN fq.category_id = 3 THEN '숙박'
-              ELSE '관광명소'
+              WHEN fq.category_id > 3 THEN '관광 명소'
+              ELSE '기타'
             END
           ORDER BY fq.review_vector <-> :embedding
         ) AS rn`,
@@ -120,20 +138,78 @@ export class LocationRepository extends Repository<Location> {
       .setParameter("y_min", landmark.y - 0.02)
       .setParameter("y_max", landmark.y + 0.02)
       .setParameter("landmark_id", landmark.kakao_id)
-      .setParameter("embedding", embedding_string)
-      .where("(sq.rn <= :restaurant_limit AND sq.category_id = 1)", {
-        restaurant_limit: 2,
-      })
-      .orWhere("(sq.rn <= :cafe_limit AND sq.category_id = 2)", {
-        cafe_limit: 1,
-      })
-      .orWhere("(sq.rn <= :accommodation_limit AND sq.category_id = 3)", {
-        accommodation_limit: 1,
-      })
-      .orWhere("(sq.rn <= :other_limit AND sq.category_id > 3)", {
-        other_limit: 1,
-      })
-      .orderBy("category_id", "ASC")
+      .setParameter("embedding", embedding_vector)
+      .setParameter("day", day)
+      .where("sq.rn = 1")
+      .andWhere("sq.order_category < 5")
+      .orderBy("sq.order_category", "ASC")
       .getRawMany();
+  }
+
+  /**
+   * embedding_vector에 맞는 장소 추천
+   * @param {number[]} embedding_vector 사용자가 입력한 문장의 임베딩 벡터
+   * @param {string} category 사용자가 원하는 장소 카테고리
+   * @param {number} day 사용자가 원하는 추천 요일
+   * @param {boolean} is_lunch 사용자가 점심/저녁 중 무엇을 원하는지
+   * @param {number} x 사용자가 원하는 x 좌표
+   * @param {number} y 사용자가 원하는 y 좌표
+   * @returns 추천 장소 리스트
+   * */
+  async recommendOne(
+    embedding_vector: string,
+    category: string,
+    day: number,
+    is_lunch: boolean,
+    x: number,
+    y: number,
+    high_review: boolean,
+  ) {
+    const queryBuilder = this.repository
+      .createQueryBuilder("location")
+      .leftJoin("location.category", "category")
+      .select([
+        "location.id AS kakao_id",
+        "location.name AS name",
+        "location.address AS address",
+        "location.url AS url",
+        "ST_X(location.coordinates) AS x",
+        "ST_Y(location.coordinates) AS y",
+        "category.name AS category",
+      ])
+      .addSelect(`location.review_vector <-> :embedding`, "distance")
+      .setParameter("embedding", embedding_vector)
+      .where("category.name = :category", { category })
+      .andWhere("location.review_vector IS NOT NULL")
+      .andWhere("ST_X(location.coordinates) BETWEEN :x_min AND :x_max", {
+        x_min: x - 0.015,
+        x_max: x + 0.015,
+      })
+      .andWhere("ST_Y(location.coordinates) BETWEEN :y_min AND :y_max", {
+        y_min: y - 0.02,
+        y_max: y + 0.02,
+      });
+
+    if (high_review) {
+      queryBuilder.andWhere(
+        "(location.review_score IS NULL OR location.review_score >= 3.5)",
+      );
+    }
+
+    if (categoryToNumberMap[category] < 3) {
+      queryBuilder
+        .leftJoin("location.hours", "hours")
+        .andWhere("hours.day = :day", { day });
+      if (is_lunch) {
+        queryBuilder
+          .andWhere("hours.open_time < TIME '12:30:00'")
+          .andWhere("hours.close_time > TIME '13:00:00'");
+      } else {
+        queryBuilder
+          .andWhere("hours.open_time < TIME '18:30:00'")
+          .andWhere("hours.close_time > TIME '19:00:00'");
+      }
+    }
+    return await queryBuilder.orderBy("distance").limit(3).getRawMany();
   }
 }

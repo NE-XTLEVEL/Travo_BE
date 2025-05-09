@@ -31,7 +31,7 @@ export class Location {
 
   @Column({
     type: "geometry",
-    spatialFeatureType: "Point" /* eslint-disable-line */,
+    spatialFeatureType: "Point",
     srid: 4326,
     nullable: false,
   })
