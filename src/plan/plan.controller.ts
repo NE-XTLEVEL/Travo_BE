@@ -8,8 +8,15 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { PlanService } from "./plan.service";
-import { ApiBearerAuth, ApiOperation, ApiQuery } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+} from "@nestjs/swagger";
 import { JwtAuthGuard } from "src/auth/guard/jwt.guard";
+import { PlanResponseDto } from "./dto/response/plan.response.dto";
+import { RecommendationResponseDto } from "src/location/dto/response/recommendation.response.dto";
 
 @Controller("plan")
 @ApiBearerAuth("token")
@@ -28,7 +35,15 @@ export class PlanController {
     description: "Cursor for pagination",
     type: Number,
   })
-  async getPlans(@Req() req, @Query("cursor") cursor?: number) {
+  @ApiResponse({
+    status: 200,
+    description: "List of plans",
+    type: [PlanResponseDto],
+  })
+  async getPlans(
+    @Req() req,
+    @Query("cursor") cursor?: number,
+  ): Promise<PlanResponseDto[]> {
     const { user } = req;
 
     if (!user) {
@@ -43,7 +58,15 @@ export class PlanController {
     summary: "Get plan by ID",
     description: "Get a specific plan by its ID",
   })
-  async getPlan(@Req() req, @Param("plan_id") plan_id: number) {
+  @ApiResponse({
+    status: 200,
+    description: "Plan details",
+    type: RecommendationResponseDto,
+  })
+  async getPlan(
+    @Req() req,
+    @Param("plan_id") plan_id: number,
+  ): Promise<RecommendationResponseDto> {
     const { user } = req;
 
     if (!user) {

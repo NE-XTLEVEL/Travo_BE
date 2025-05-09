@@ -8,6 +8,7 @@ import { RecommendationResponseDto } from "src/location/dto/response/recommendat
 import { DataSource } from "typeorm";
 import { Plan } from "./entities/plan.entity";
 import { Event } from "./entities/event.entity";
+import { PlanResponseDto } from "./dto/response/plan.response.dto";
 
 @Injectable()
 export class PlanService {
@@ -59,14 +60,16 @@ export class PlanService {
     }
   }
 
-  async getPlans(user_id: number, cursor: number): Promise<Plan[]> {
+  async getPlans(user_id: number, cursor: number): Promise<PlanResponseDto[]> {
     const result = await this.planRepository.getPlans(user_id, cursor);
 
     if (!result) {
       throw new NotFoundException("Plan not found");
     }
 
-    return result;
+    return result.map((plan) => {
+      return PlanResponseDto.of(plan);
+    });
   }
 
   /**
