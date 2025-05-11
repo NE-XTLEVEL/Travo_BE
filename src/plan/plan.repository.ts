@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, QueryRunner, Repository } from "typeorm";
 import { Plan } from "./entities/plan.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 
@@ -32,7 +32,36 @@ export class PlanRepository extends Repository<Plan> {
    * @param {number} take 추천할 장소 개수
    * @returns 추천 랜드마크 리스트
    * */
-  async getPlan(user_id: number, plan_id: number): Promise<Plan> {
+  async getPlan(
+    user_id: number,
+    plan_id: number,
+    queryRunner?: QueryRunner,
+  ): Promise<Plan> {
+    if (queryRunner) {
+      return queryRunner.manager
+        .createQueryBuilder(Plan, "plan")
+        .select([
+          "plan.id",
+          "plan.name",
+          "event.day",
+          "event.local_id",
+          "location.id",
+          "location.name",
+          "location.address",
+          "location.url",
+          "location.coordinates",
+          "location.review_score",
+          "category.name",
+        ])
+        .leftJoin("plan.events", "event")
+        .leftJoin("event.location", "location")
+        .leftJoin("plan.user", "user")
+        .leftJoin("location.category", "category")
+        .where("user.id = :user_id", { user_id })
+        .andWhere("plan.id = :plan_id", { plan_id })
+        .orderBy("event.local_id", "ASC")
+        .getOne();
+    }
     return this.repository
       .createQueryBuilder("plan")
       .select([

@@ -1,7 +1,9 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
+  Put,
   Query,
   Req,
   UnauthorizedException,
@@ -17,6 +19,8 @@ import {
 import { JwtAuthGuard } from "src/auth/guard/jwt.guard";
 import { PlanResponseDto } from "./dto/response/plan.response.dto";
 import { RecommendationResponseDto } from "src/location/dto/response/recommendation.response.dto";
+import { UpdatePlanDto } from "./dto/request/update.plan.dto";
+import { MessageResponseDto } from "src/auth/dto/response/message.response.dto";
 
 @Controller("plan")
 @ApiBearerAuth("token")
@@ -74,5 +78,29 @@ export class PlanController {
     }
 
     return await this.planService.getPlan(user.id, plan_id);
+  }
+
+  @Put(":plan_id")
+  @ApiOperation({
+    summary: "Update plan by ID",
+    description: "Update a specific plan by its ID",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Plan updated successfully",
+    type: MessageResponseDto,
+  })
+  async updatePlan(
+    @Req() req,
+    @Param("plan_id") plan_id: number,
+    @Body() updatePlanDto: UpdatePlanDto,
+  ): Promise<MessageResponseDto> {
+    const { user } = req;
+
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    return await this.planService.updatePlan(plan_id, user.id, updatePlanDto);
   }
 }

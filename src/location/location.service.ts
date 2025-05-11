@@ -33,9 +33,9 @@ export class LocationService {
       embedding_vector,
       days,
     ); // 랜드마크를 days개 추천
-    console.log(landmarks);
+
     const day = date.getDay();
-    const result = { data: {} };
+    const result = { data: {}, max_id: 0 };
     let local_id = 1;
     for (let i = 0; i < days; i++) {
       const response = await this.locationRepository.recommendOtherCategory(
@@ -69,6 +69,8 @@ export class LocationService {
         local_id++;
       }
     }
+
+    result.max_id = local_id - 1;
 
     if (user) {
       await this.planService.createPlan(user.id, result, plan_name); // 계획 저장

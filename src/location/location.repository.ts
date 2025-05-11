@@ -177,7 +177,6 @@ export class LocationRepository extends Repository<Location> {
         "ST_Y(location.coordinates) AS y",
         "category.name AS category",
       ])
-      .addSelect(`location.review_vector <-> :embedding`, "distance")
       .setParameter("embedding", embedding_vector)
       .where("category.name = :category", { category })
       .andWhere("location.review_vector IS NOT NULL")
@@ -188,7 +187,8 @@ export class LocationRepository extends Repository<Location> {
       .andWhere("ST_Y(location.coordinates) BETWEEN :y_min AND :y_max", {
         y_min: y - 0.02,
         y_max: y + 0.02,
-      });
+      })
+      .addSelect(`location.review_vector <-> :embedding`, "distance");
 
     if (high_review) {
       queryBuilder.andWhere(
@@ -196,7 +196,7 @@ export class LocationRepository extends Repository<Location> {
       );
     }
 
-    if (categoryToNumberMap[category] < 3) {
+    if (categoryToNumberMap.get(category) < 3) {
       queryBuilder
         .leftJoin("location.hours", "hours")
         .andWhere("hours.day = :day", { day });

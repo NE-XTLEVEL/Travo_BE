@@ -43,9 +43,16 @@ export class RecommendationResponseDto {
   @Type(() => LocationResponseDto)
   data: Record<string, LocationResponseDto[]>;
 
-  static of(events: Event[]): RecommendationResponseDto {
+  @ApiProperty({
+    description: "The max number of local_id",
+    example: 16,
+  })
+  max_id: number;
+
+  static of(events: Event[], max_id: number): RecommendationResponseDto {
     const recommendationResponseDto = new RecommendationResponseDto();
     recommendationResponseDto.data = {};
+    recommendationResponseDto.max_id = max_id;
 
     for (const event of events) {
       const dayKey = `day${event.day}`;

@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsBoolean, IsIn, IsNumber, IsString } from "class-validator";
-import { categoryToNumberMap } from "src/common/category/category";
+import { validRecommendationCategories } from "src/common/category/category";
 
 export class RecommendationOneDto {
   @ApiProperty({
@@ -20,9 +20,9 @@ export class RecommendationOneDto {
     example: "음식점",
   })
   @IsString({ message: "category must be a string" })
-  @IsIn(Object.keys(categoryToNumberMap), {
+  @IsIn(validRecommendationCategories, {
     message: (args) =>
-      `${args.value}는 유효한 카테고리가 아닙니다. 유효한 카테고리: ${Object.keys(categoryToNumberMap).join(", ")}`,
+      `${args.value}는 유효한 카테고리가 아닙니다. 유효한 카테고리: ${validRecommendationCategories.join(", ")}`,
   })
   category: string;
 
