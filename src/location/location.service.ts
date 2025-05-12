@@ -9,6 +9,7 @@ import { User } from "src/user/entities/user.entity";
 import { PlanService } from "src/plan/plan.service";
 import { RecommendationOneDto } from "./dto/request/recommendation.one.dto";
 import { LocationResponseDto } from "./dto/response/location.response.dto";
+import { landmarkToIdMap } from "src/common/landmark/landmark";
 
 /*
 SELECT name FROM locations WHERE review_score IS NOT NULL AND review_score >= 3 ORDER BY review_vector <#>
@@ -29,20 +30,56 @@ export class LocationService {
 
     const embedding_vector: string = await this.getEmbeddingVector(description); // description을 embedding vector로 변환
 
-    const landmarks = await this.locationRepository.recommendLandmark(
-      embedding_vector,
-      days,
-    ); // 랜드마크를 days개 추천
+    let landmarks;
+    try {
+      const landmarks_name = await this.getLandmarks(days, description); // 랜드마크 추천
 
+      if (landmarks_name === undefined) {
+        throw new Error("No landmarks found");
+      }
+      const landmarks_id = landmarks_name.map((name) =>
+        landmarkToIdMap.get(name),
+      );
+      landmarks = await this.locationRepository.getLandmarks(landmarks_id); // 랜드마크 id로 장소 정보 가져오기
+    } catch {
+      landmarks = await this.locationRepository.recommendLandmark(
+        embedding_vector,
+        days,
+      );
+    } // 랜드마크를 days개 추천
     const day = date.getDay();
     const result = { data: {}, max_id: 0 };
     let local_id = 1;
+    let accommodation;
+
     for (let i = 0; i < days; i++) {
+      const { min_x, max_x, min_y, max_y } = await this.getSector(
+        landmarks[i].x,
+        landmarks[i].y,
+      ); // 랜드마크의 sector 구하기
       const response = await this.locationRepository.recommendOtherCategory(
         embedding_vector,
-        landmarks[i],
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+        landmarks[i].kakao_id,
         (day + i) % 7,
       );
+
+      if (days == 2 && i == 0) {
+        accommodation = await this.locationRepository.recommendAccommodation(
+          embedding_vector,
+          landmarks[i].x,
+          landmarks[i].y,
+        );
+      } else if (i % 2 == 0 && i + 1 < days) {
+        accommodation = await this.locationRepository.recommendAccommodation(
+          embedding_vector,
+          landmarks[i + 1].x,
+          landmarks[i + 1].y,
+        );
+      }
 
       result.data[`day${i + 1}`] = [];
 
@@ -60,9 +97,14 @@ export class LocationService {
             ...response[j],
             local_id,
           });
-        } else {
+        } else if (j === 4) {
           result.data[`day${i + 1}`].push({
             ...response[j - 1],
+            local_id,
+          });
+        } else if (j === 5) {
+          result.data[`day${i + 1}`].push({
+            ...accommodation,
             local_id,
           });
         }
@@ -135,5 +177,51 @@ export class LocationService {
 
     const embedding_string = `[${embedding_vector.join(",")}]`;
     return embedding_string;
+  }
+
+  private async getLandmarks(days: number, prompt: string): Promise<string[]> {
+    const response = await this.httpService
+      .post(
+        process.env.AI_SERVER + "/landmark",
+        { prompt, days },
+        {
+          headers: {
+            "Content-Type": "application/json" /* eslint-disable-line */,
+            accept: "application/json",
+          },
+        },
+      )
+      .pipe(
+        map((response) => response.data.landmarks as string[]),
+        catchError((error: AxiosError) => {
+          throw new Error("Failed to fetch landmark from AI server " + error);
+        }),
+      );
+
+    const landmarks = await firstValueFrom(response);
+
+    return landmarks;
+  }
+
+  private async getSector(x: number, y: number) {
+    const south = 37.42764;
+    const west = 126.769815;
+    const lng_interval = 0.04;
+    const lat_interval = 0.03;
+
+    const min_x = Math.floor((x - west) / lng_interval) * lng_interval + west;
+    const max_x =
+      (Math.floor((x - west) / lng_interval) + 1) * lng_interval + west;
+    const min_y = Math.floor((y - south) / lat_interval) * lat_interval + south;
+    const max_y =
+      (Math.floor((y - south) / lat_interval) + 1) * lat_interval + south;
+
+    const sector = {
+      min_x,
+      max_x,
+      min_y,
+      max_y,
+    };
+    return sector;
   }
 }

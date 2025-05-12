@@ -17,6 +17,7 @@ export const categoryToNumberMap = new Map<string, number>([
   ["공공기관", 16],
   ["병원", 17],
   ["약국", 18],
+  ["기타", 19],
 ]);
 
 export const validRecommendationCategories = [
