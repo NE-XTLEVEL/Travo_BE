@@ -3,10 +3,10 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Put,
   Query,
   Req,
-  UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
 import { PlanService } from "./plan.service";
@@ -21,6 +21,7 @@ import { PlanResponseDto } from "./dto/response/plan.response.dto";
 import { RecommendationResponseDto } from "src/location/dto/response/recommendation.response.dto";
 import { UpdatePlanDto } from "./dto/request/update.plan.dto";
 import { MessageResponseDto } from "src/auth/dto/response/message.response.dto";
+import { UpdatePlanNameDto } from "./dto/request/update.plan_name.dto";
 
 @Controller("plan")
 @ApiBearerAuth("token")
@@ -50,10 +51,6 @@ export class PlanController {
   ): Promise<PlanResponseDto[]> {
     const { user } = req;
 
-    if (!user) {
-      throw new UnauthorizedException("User not found");
-    }
-
     return await this.planService.getPlans(user.id, cursor);
   }
 
@@ -72,10 +69,6 @@ export class PlanController {
     @Param("plan_id") plan_id: number,
   ): Promise<RecommendationResponseDto> {
     const { user } = req;
-
-    if (!user) {
-      throw new UnauthorizedException("User not found");
-    }
 
     return await this.planService.getPlan(user.id, plan_id);
   }
@@ -97,10 +90,30 @@ export class PlanController {
   ): Promise<MessageResponseDto> {
     const { user } = req;
 
-    if (!user) {
-      throw new UnauthorizedException("User not found");
-    }
-
     return await this.planService.updatePlan(plan_id, user.id, updatePlanDto);
+  }
+
+  @Patch("name/:plan_id")
+  @ApiOperation({
+    summary: "Update plan name",
+    description: "Update the name of a specific plan by its ID",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Plan name updated successfully",
+    type: MessageResponseDto,
+  })
+  async updatePlanName(
+    @Req() req,
+    @Param("plan_id") plan_id: number,
+    @Body() updatePlanNameDto: UpdatePlanNameDto,
+  ): Promise<MessageResponseDto> {
+    const { user } = req;
+
+    return await this.planService.updatePlanName(
+      plan_id,
+      user.id,
+      updatePlanNameDto,
+    );
   }
 }

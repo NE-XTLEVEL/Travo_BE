@@ -34,7 +34,7 @@ export class LocationService {
     try {
       const landmarks_name = await this.getLandmarks(days, description); // 랜드마크 추천
 
-      if (landmarks_name === undefined) {
+      if (landmarks_name === undefined || landmarks_name.length < days) {
         throw new Error("No landmarks found");
       }
       const landmarks_id = landmarks_name.map((name) =>

@@ -12,6 +12,7 @@ import { PlanResponseDto } from "./dto/response/plan.response.dto";
 import { UpdatePlanDto } from "./dto/request/update.plan.dto";
 import { Location } from "src/location/entities/location.entity";
 import { categoryToNumberMap } from "src/common/category/category";
+import { UpdatePlanNameDto } from "./dto/request/update.plan_name.dto";
 
 @Injectable()
 export class PlanService {
@@ -194,5 +195,25 @@ export class PlanService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async updatePlanName(
+    plan_id: number,
+    user_id: number,
+    updatePlanNameDto: UpdatePlanNameDto,
+  ): Promise<{ message: string }> {
+    const { name } = updatePlanNameDto;
+
+    const plan: Plan = await this.planRepository.getPlan(user_id, plan_id);
+
+    if (!plan) {
+      throw new NotFoundException("Plan not found");
+    }
+
+    await this.planRepository.update({ id: plan_id }, { name });
+
+    return {
+      message: "Plan name updated successfully",
+    };
   }
 }
