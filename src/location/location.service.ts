@@ -48,7 +48,7 @@ export class LocationService {
       );
     } // 랜드마크를 days개 추천
     const day = date.getDay();
-    const result = { data: {}, max_id: 0 };
+    const result = { data: {}, max_id: 0, plan_id: null, plan_name: plan_name };
     let local_id = 1;
     let accommodation;
 
@@ -87,25 +87,44 @@ export class LocationService {
         if (i == days - 1 && j == 5) {
           break;
         }
-        if (j === 3) {
-          result.data[`day${i + 1}`].push({
-            ...landmarks[i],
-            local_id,
-          });
-        } else if (j < 3) {
+        if (j === 0) {
           result.data[`day${i + 1}`].push({
             ...response[j],
+            is_lunch: true,
             local_id,
+          });
+        } else if (j === 1) {
+          result.data[`day${i + 1}`].push({
+            ...response[j],
+            is_lunch: false,
+            local_id,
+          });
+        } else if (j === 2) {
+          result.data[`day${i + 1}`].push({
+            ...response[j],
+            is_lunch: false,
+            local_id,
+            url: `https://place.map.kakao.com/${response[j].kakao_id}`,
+          });
+        } else if (j === 3) {
+          result.data[`day${i + 1}`].push({
+            ...landmarks[i],
+            is_lunch: false,
+            local_id,
+            url: `https://place.map.kakao.com/${landmarks[i].kakao_id}`,
           });
         } else if (j === 4) {
           result.data[`day${i + 1}`].push({
             ...response[j - 1],
+            is_lunch: false,
             local_id,
           });
         } else if (j === 5) {
           result.data[`day${i + 1}`].push({
             ...accommodation,
+            is_lunch: false,
             local_id,
+            url: `https://place.map.kakao.com/${accommodation.kakao_id}`,
           });
         }
         local_id++;
@@ -115,7 +134,12 @@ export class LocationService {
     result.max_id = local_id - 1;
 
     if (user) {
-      await this.planService.createPlan(user.id, result, plan_name); // 계획 저장
+      const plan = await this.planService.createPlan(
+        user.id,
+        result,
+        plan_name,
+      ); // 계획 저장
+      result.plan_id = plan.id;
     }
     return result;
   }
@@ -124,8 +148,8 @@ export class LocationService {
     recommendationOneDto: RecommendationOneDto,
   ): Promise<LocationResponseDto[]> {
     const {
+      original_id,
       description,
-      day,
       category,
       is_lunch,
       x,
@@ -137,9 +161,9 @@ export class LocationService {
     const embedding_vector = await this.getEmbeddingVector(description); // description을 embedding vector로 변환
 
     const locations = await this.locationRepository.recommendOne(
+      original_id,
       embedding_vector,
       category,
-      day,
       is_lunch,
       x,
       y,
@@ -147,10 +171,13 @@ export class LocationService {
     ); // 장소 추천
 
     return locations.map((location) =>
-      LocationResponseDto.of({
-        ...location,
-        local_id,
-      }),
+      LocationResponseDto.of(
+        {
+          ...location,
+          local_id,
+        },
+        is_lunch,
+      ),
     );
   }
 
@@ -206,8 +233,8 @@ export class LocationService {
   private async getSector(x: number, y: number) {
     const south = 37.42764;
     const west = 126.769815;
-    const lng_interval = 0.04;
-    const lat_interval = 0.03;
+    const lng_interval = 0.0417013;
+    const lat_interval = 0.03066456;
 
     const min_x = Math.floor((x - west) / lng_interval) * lng_interval + west;
     const max_x =

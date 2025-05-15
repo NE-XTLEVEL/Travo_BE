@@ -4,16 +4,17 @@ import { validRecommendationCategories } from "src/common/category/category";
 
 export class RecommendationOneDto {
   @ApiProperty({
+    description: "The original id of the location",
+    example: "12345678",
+  })
+  @IsNumber({}, { message: "original_id must be a number" })
+  original_id: number;
+
+  @ApiProperty({
     description: "The description of the recommendation",
     example: "산뜻한 여행을 가고 싶어요",
   })
   description: string;
-
-  @ApiProperty({
-    description: "The day of the recommendation",
-    example: 0,
-  })
-  day: number;
 
   @ApiProperty({
     description: "The category for the recommendation",

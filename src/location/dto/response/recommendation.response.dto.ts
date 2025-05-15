@@ -3,6 +3,7 @@ import { Type } from "class-transformer";
 import { ValidateNested } from "class-validator";
 import { LocationResponseDto } from "./location.response.dto";
 import { Event } from "src/plan/entities/event.entity";
+import { categoryToNumberMap } from "src/common/category/category";
 
 @ApiExtraModels(LocationResponseDto)
 export class RecommendationResponseDto {
@@ -49,15 +50,38 @@ export class RecommendationResponseDto {
   })
   max_id: number;
 
-  static of(events: Event[], max_id: number): RecommendationResponseDto {
+  @ApiProperty({
+    description: "The plan id",
+    example: 1,
+  })
+  plan_id: number;
+
+  @ApiProperty({
+    description: "The name of the plan",
+    example: "여행 계획",
+  })
+  plan_name: string;
+
+  static of(
+    events: Event[],
+    max_id: number,
+    plan_id: number,
+    plan_name: string,
+  ): RecommendationResponseDto {
     const recommendationResponseDto = new RecommendationResponseDto();
     recommendationResponseDto.data = {};
     recommendationResponseDto.max_id = max_id;
-
+    recommendationResponseDto.plan_id = plan_id;
+    recommendationResponseDto.plan_name = plan_name;
+    let is_lunch = false;
     for (const event of events) {
       const dayKey = `day${event.day}`;
       if (!recommendationResponseDto.data[dayKey]) {
         recommendationResponseDto.data[dayKey] = [];
+        is_lunch = true;
+      }
+      if (categoryToNumberMap.get(event.location.category.name) > 2) {
+        event.location.url = `https://place.map.kakao.com/${event.location.id}`;
       }
       recommendationResponseDto.data[dayKey].push({
         kakao_id: event.location.id,
@@ -68,7 +92,9 @@ export class RecommendationResponseDto {
         address: event.location.address,
         url: event.location.url,
         category: event.location.category.name,
+        is_lunch: is_lunch,
       });
+      is_lunch = false;
     }
 
     return recommendationResponseDto;

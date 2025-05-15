@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { categoryToNumberMap } from "src/common/category/category";
 
 export class LocationResponseDto {
   @ApiProperty({
@@ -50,7 +51,13 @@ export class LocationResponseDto {
   })
   category: string;
 
-  static of(location: any): LocationResponseDto {
+  @ApiProperty({
+    description: "Is Lunch or Dinner",
+    example: true,
+  })
+  is_lunch: boolean;
+
+  static of(location: any, is_lunch: boolean): LocationResponseDto {
     const locationResponseDto = new LocationResponseDto();
     locationResponseDto.kakao_id = location.kakao_id;
     locationResponseDto.local_id = location.local_id;
@@ -58,8 +65,12 @@ export class LocationResponseDto {
     locationResponseDto.x = location.x;
     locationResponseDto.y = location.y;
     locationResponseDto.address = location.address;
-    locationResponseDto.url = location.url;
+    if (categoryToNumberMap.get(location.category) < 3)
+      locationResponseDto.url = location.url;
+    else
+      locationResponseDto.url = `https://place.map.kakao.com/${location.kakao_id}`;
     locationResponseDto.category = location.category;
+    locationResponseDto.is_lunch = is_lunch;
     return locationResponseDto;
   }
 }

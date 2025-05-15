@@ -201,7 +201,7 @@ export class LocationRepository extends Repository<Location> {
       .andWhere(
         `ST_DWithin(
           coordinates,
-          ST_SetSRID(ST_MakePoint(:x, :y), 4326),
+          ST_SetSRID(ST_MakePoint(:x, :y), 4326)::geography,
           2500
         )`,
         {
@@ -227,9 +227,9 @@ export class LocationRepository extends Repository<Location> {
    * @returns 추천 장소 리스트
    * */
   async recommendOne(
+    original_id: number,
     embedding_vector: string,
     category: string,
-    day: number,
     is_lunch: boolean,
     x: number,
     y: number,
@@ -250,14 +250,18 @@ export class LocationRepository extends Repository<Location> {
       .setParameter("embedding", embedding_vector)
       .where("category.name = :category", { category })
       .andWhere("location.review_vector IS NOT NULL")
-      .andWhere("ST_X(location.coordinates) BETWEEN :x_min AND :x_max", {
-        x_min: x - 0.015,
-        x_max: x + 0.015,
-      })
-      .andWhere("ST_Y(location.coordinates) BETWEEN :y_min AND :y_max", {
-        y_min: y - 0.02,
-        y_max: y + 0.02,
-      })
+      .andWhere(
+        `ST_DWithin(
+          coordinates,
+          ST_SetSRID(ST_MakePoint(:x, :y), 4326)::geography,
+          2500
+        )`,
+        {
+          x,
+          y,
+        },
+      )
+      .andWhere("location.id != :original_id", { original_id })
       .addSelect(`location.review_vector <-> :embedding`, "distance");
 
     if (high_review) {
@@ -267,9 +271,7 @@ export class LocationRepository extends Repository<Location> {
     }
 
     if (categoryToNumberMap.get(category) < 3) {
-      queryBuilder
-        .leftJoin("location.hours", "hours")
-        .andWhere("hours.day = :day", { day });
+      queryBuilder.leftJoin("location.hours", "hours");
       if (is_lunch) {
         queryBuilder
           .andWhere("hours.open_time < TIME '12:30:00'")
@@ -280,6 +282,10 @@ export class LocationRepository extends Repository<Location> {
           .andWhere("hours.close_time > TIME '19:00:00'");
       }
     }
-    return await queryBuilder.orderBy("distance").limit(3).getRawMany();
+    return await queryBuilder
+      .distinct(true)
+      .orderBy("distance")
+      .limit(3)
+      .getRawMany();
   }
 }

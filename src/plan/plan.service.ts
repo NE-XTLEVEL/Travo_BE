@@ -55,6 +55,7 @@ export class PlanService {
       }
 
       await queryRunner.commitTransaction();
+      return plan;
     } catch (error) {
       console.error("Error creating plan:", error);
       await queryRunner.rollbackTransaction();
@@ -95,7 +96,12 @@ export class PlanService {
       return Math.max(max, event.local_id);
     }, 0);
 
-    return RecommendationResponseDto.of(result.events, max_id);
+    return RecommendationResponseDto.of(
+      result.events,
+      max_id,
+      plan_id,
+      result.name,
+    );
   }
 
   /**
@@ -122,19 +128,14 @@ export class PlanService {
         queryRunner,
       );
 
-      const new_local_ids = Object.values(data).flatMap((locations) =>
-        locations.map((location) => location.local_id),
-      );
       const max_local_id = plan.events.length;
       let local_id = 1;
 
       for (const event of plan.events) {
-        if (!new_local_ids.includes(event.local_id)) {
-          await queryRunner.manager.delete(Event, {
-            plan: { id: plan.id },
-            local_id: event.local_id,
-          });
-        }
+        await queryRunner.manager.delete(Event, {
+          plan: { id: plan.id },
+          local_id: event.local_id,
+        });
       }
 
       for (let i = 1; i <= Object.keys(data).length; i++) {
@@ -159,26 +160,13 @@ export class PlanService {
                 category: { id: categoryToNumberMap.get(location.category) },
               });
             }
-
-            await queryRunner.manager.save(Event, {
-              plan: { id: plan.id },
-              location: { id: location.kakao_id },
-              day: i,
-              local_id: local_id,
-            });
-          } else if (local_id !== location.local_id) {
-            await queryRunner.manager.update(
-              Event,
-              {
-                plan: { id: plan.id },
-                local_id: location.local_id,
-              },
-              {
-                local_id: local_id,
-                day: i,
-              },
-            );
           }
+          await queryRunner.manager.save(Event, {
+            plan: { id: plan.id },
+            location: { id: location.kakao_id },
+            day: i,
+            local_id: local_id,
+          });
           local_id++;
         }
       }
